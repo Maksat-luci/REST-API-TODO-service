@@ -1,9 +1,17 @@
 package handler
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/Maksat-luci/REST-API-TODO-service/pkg/service"
+	"github.com/gin-gonic/gin"
+)
 
 //Handler структура handler
 type Handler struct {
+	services *service.Service
+}
+
+func NewHandler(services *service.Service) *Handler {
+	return &Handler{services: services}
 }
 
 //InitRoutes иницилиризует пути тоесть даёт понять функции listenAndServe какие пути нужно слушать
