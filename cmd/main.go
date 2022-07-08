@@ -1,13 +1,14 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"os"
 
 	todo "github.com/Maksat-luci/REST-API-TODO-service"
 	"github.com/Maksat-luci/REST-API-TODO-service/pkg/handler"
 	"github.com/Maksat-luci/REST-API-TODO-service/pkg/repository"
 	"github.com/Maksat-luci/REST-API-TODO-service/pkg/service"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/spf13/viper"
 )
@@ -16,15 +17,18 @@ func main() {
 	if err := initConfig(); err != nil {
 		log.Fatalf("error initializing configs: %s", err.Error())
 	}
-	fmt.Println(viper.GetString("db.sslmode"))
+	if err := godotenv.Load(); err != nil {
+		log.Fatalf("error loading env variables: %s", err.Error())
+	}
+
 	//создаём обьект структуры конфиг и передаём в функцию конструктора после чего получаем, ОБЬЕКТ ДЛЯ РАБОТЫ С ПОСТГРЕСОМ
 	db, err := repository.NewPostgresDB(repository.Config{
 		Host:     viper.GetString("db.host"),
 		Port:     viper.GetString("db.port"),
 		Username: viper.GetString("db.username"),
-		Password: viper.GetString("dc.password"),
+		Password: os.Getenv("DB_PASSWORD"),
 		DBName:   viper.GetString("db.dbname"),
-		SSLMode:  "disable",
+		SSLMode:  viper.GetString("db.sslmode"),
 	})
 	if err != nil {
 		log.Fatal("failed to initialize db:", err.Error())
