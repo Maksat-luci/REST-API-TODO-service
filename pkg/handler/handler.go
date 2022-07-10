@@ -5,7 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-//Handler структура handler
+//Handler структура которая содержит в себе интерфейс нижнего слоя service
 type Handler struct {
 	services *service.Service
 }
