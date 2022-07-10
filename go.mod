@@ -3,6 +3,7 @@ module github.com/Maksat-luci/REST-API-TODO-service
 go 1.17
 
 require (
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/gin-gonic/gin v1.8.1
 	github.com/golang-migrate/migrate v3.5.4+incompatible // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect
