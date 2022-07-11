@@ -2,6 +2,7 @@ package service
 
 import (
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"time"
 
@@ -16,7 +17,7 @@ const (
 	tokenTTL   = 12 * time.Hour
 )
 
-// создаём расширенную версию структуры jwt.StandardClaims 
+// создаём расширенную версию структуры jwt.StandardClaims
 // наследуемся от него же и дополняем его филдом UserID
 type tokenClaims struct {
 	jwt.StandardClaims
@@ -47,8 +48,8 @@ func (s *AuthService) GenerateToken(username, password string) (string, error) {
 	// генерируем новый токен и указываем когда он истечёт и когда был создан
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
 		jwt.StandardClaims{
-		ExpiresAt: time.Now().Add(tokenTTL).Unix(),
-		IssuedAt:  time.Now().Unix(),
+			ExpiresAt: time.Now().Add(tokenTTL).Unix(),
+			IssuedAt:  time.Now().Unix(),
 		},
 		user.ID,
 	})
@@ -63,4 +64,28 @@ func generatePasswordHash(password string) string {
 	hash.Write([]byte(password))
 	// используем фичу криптографии называемый солью, для лучшего хеширования пароля
 	return fmt.Sprintf("%x", hash.Sum([]byte(salt)))
+}
+
+
+func (s *AuthService) ParseToken(accesToken string) (int, error) {
+	//тут мы проверяем на метод подписи токена если она корректна то возвращаем подпись
+	TokenUser, err := jwt.ParseWithClaims(accesToken, &tokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("invalid signing method")
+		}
+
+		return []byte(signingKey), nil
+	})
+	if err != nil {
+		return 0, nil
+	}
+	// проверяем является ли нвш токенклеймс токен клеймсом
+	claims, ok := TokenUser.Claims.(*tokenClaims)
+	if !ok {
+		return 0, errors.New("token claims are not of type *tokenClaims")
+	}
+	// если всё хорошо то возвращаем user.id
+	return claims.UserId, nil
+
 }
