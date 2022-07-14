@@ -10,6 +10,10 @@ type errorResponse struct {
 	Message string `json:"message"`
 }
 
+type statusResponse struct {
+	Status string
+}
+
 func NewErrorResponse(c *gin.Context, statusCode int, message string) {
 	// уведомляем в консоли об ошибке
 	logrus.Error(message)

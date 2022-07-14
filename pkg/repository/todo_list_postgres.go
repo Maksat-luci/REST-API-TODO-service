@@ -2,9 +2,11 @@ package repository
 
 import (
 	"fmt"
+	"strings"
 
 	todo "github.com/Maksat-luci/REST-API-TODO-service"
 	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
 )
 
 type TodoListPostgres struct {
@@ -25,13 +27,13 @@ func (r *TodoListPostgres) Create(userID int, list todo.TodoList) (int, error) {
 	var id int
 	//  сооздаём sql запрос
 	createListQuery := fmt.Sprintf("INSERT INTO %s (title, description) VALUES ($1, $2) RETURNING id", todoListsTable)
-	// делаю запрос в базу данных далее сохраняем данные в переменную и используем эти данные для последующего запроса в базу данных 
+	// делаю запрос в базу данных далее сохраняем данные в переменную и используем эти данные для последующего запроса в базу данных
 	row := tx.QueryRow(createListQuery, list.Title, list.Description)
 	if err := row.Scan(&id); err != nil {
 		tx.Rollback()
 		return 0, err
 	}
-	// формируем второй запрос в базу данных 
+	// формируем второй запрос в базу данных
 	createUsersListQuery := fmt.Sprintf("INSERT INTO %s (user_id, list_id) VALUES ($1, $2)", usersListsTable)
 	//отправляем второй запрос с данными первого запроса в одну логическую операцию
 	_, err = tx.Exec(createUsersListQuery, userID, id)
@@ -39,28 +41,68 @@ func (r *TodoListPostgres) Create(userID int, list todo.TodoList) (int, error) {
 		tx.Rollback()
 		return 0, err
 	}
-	return id , tx.Commit()
+	return id, tx.Commit()
 }
 
 func (r *TodoListPostgres) GetAll(userId int) ([]todo.TodoList, error) {
 	var lists []todo.TodoList
-	// выполняем sql inner join в базу данных 
+	// выполняем sql inner join в базу данных
 	query := fmt.Sprintf("SELECT tl.id, tl.title ,tl.description FROM %s tl INNER JOIN %s ul on tl.id = ul.list_id WHERE ul.user_id = $1",
-	todoListsTable, usersListsTable)
+		todoListsTable, usersListsTable)
 	// получаем и отправляем данные
 	err := r.db.Select(&lists, query, userId)
-	
+
 	return lists, err
 }
 
 func (r *TodoListPostgres) GetById(userId, listId int) (todo.TodoList, error) {
 	var list todo.TodoList
-	
+
 	query := fmt.Sprintf(`SELECT tl.id, tl.title, tl.description FROM %s tl 
 		INNER JOIN %s ul on tl.id = ul.list_id WHERE ul.user_id = $1 AND ul.list_id = $2`,
-	todoListsTable, usersListsTable)
+		todoListsTable, usersListsTable)
 
 	err := r.db.Get(&list, query, userId, listId)
 
 	return list, err
+}
+
+func (r *TodoListPostgres) Delete(userId, listId int) error {
+	query := fmt.Sprintf("DELETE FROM %s tl USING %s ul WHERE tl.id = ul.list_id AND ul.user_id=$1 AND ul.list_id=$2",
+		todoListsTable, usersListsTable)
+
+	_, err := r.db.Exec(query, userId, listId)
+
+	return err
+}
+
+func (r *TodoListPostgres) Update(userId, listId int, input todo.UpdateListInput) error {
+	setValues := make([]string, 0)
+	args := make([]interface{}, 0)
+	argId := 1
+
+	if input.Title != nil {
+		setValues = append(setValues, fmt.Sprintf("title=$%d", argId))
+		args = append(args, *input.Title)
+		argId++
+	}
+	if input.Description != nil {
+		setValues = append(setValues, fmt.Sprintf("description=$%d", argId))
+		args = append(args, *input.Description)
+		argId++
+	}
+	// title=$1
+	// description=$1
+	// title=$1, description=$2
+	setQuery := strings.Join(setValues, ", ")
+
+	query := fmt.Sprintf("UPDATE %s tl SET %s FROM %s ul WHERE tl.id = ul.list_id AND ul.list_id=$%d AND ul.user_id=$%d",
+		todoListsTable, setQuery, usersListsTable, argId, argId+1)	
+	args = append(args, listId,userId)
+
+	logrus.Debugf("updateQuery: %s", query)
+	logrus.Debugf("args: %s", args)
+
+	_, err := r.db.Exec(query, args...)
+	return err
 }
